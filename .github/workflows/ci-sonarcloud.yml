@@ -1,0 +1,54 @@
+name: CI con SonarCloud y cobertura
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonarcloud:
+    name: Ejecutar SonarCloud Scan con pytest-cov
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Checkout del código
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # necesario para SonarCloud
+
+      # 2) Configurar Python
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 3) Instalar dependencias
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -r requirements.txt
+
+      # 4) Ejecutar pytest con cobertura
+      - name: Run pytest with coverage
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest --cov=. --cov-report=xml
+
+      # 5) SonarCloud Scan
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=SofyHolos
+            -Dsonar.projectKey=SofyHolos_flask-pytest-example
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.sources=.
+            -Dsonar.tests=tests
+            -Dsonar.test.inclusions=tests/**/*.py
+            -Dsonar.python.coverage.reportPaths=coverage.xml
